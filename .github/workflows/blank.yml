@@ -1,0 +1,53 @@
+name: CI - Build & Test
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  python:
+    name: Python - Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Skip if no Python files
+        run: |
+          if ! git ls-files '*.py' | grep -q .; then
+            echo "No Python files found — skipping Python job."
+            exit 0
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies (if requirements.txt exists)
+        run: |
+          if [ -f requirements.txt ]; then
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+          else
+            echo "No requirements.txt — continuing"
+          fi
+
+      - name: Run flake8 if available (skip if not installed)
+        run: |
+          if python -c "import pkgutil,sys; print(bool(pkgutil.find_loader('flake8')))" | grep -q True; then
+            flake8 .
+          else
+            echo "flake8 not installed — skip lint"
+          fi
+        continue-o
